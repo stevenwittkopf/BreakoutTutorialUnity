@@ -11,7 +11,12 @@ public class Ball : MonoBehaviour {
     Rigidbody2D rb;
     float speed;
     float radius;
+    float thrust;
     UpdateCall[] updates;
+
+    public float Speed{
+        get { return this.speed; }
+    }
 
     // Called once upon object instantiation
     void Awake() {
@@ -21,6 +26,8 @@ public class Ball : MonoBehaviour {
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         this.radius = this.transform.lossyScale.x * sr.sprite.rect.size.x / (2 * sr.sprite.pixelsPerUnit);
         this.updates = new UpdateCall[]{ this.AwaitingLaunchUpdate, this.InPlayUpdate };
+        // The intended terminal velocity is 7.5; V = T/d, => T = V * d;
+        this.thrust = 7.5f * this.rb.drag;
     }
 
     // Start is called before the first frame update
@@ -30,7 +37,7 @@ public class Ball : MonoBehaviour {
     }
 
     // Update is called once per frame
-    void Update() {
+    void FixedUpdate() {
         // switch (this.state){
         //     case State.awaitingLaunch:
         //         this.AwaitingLaunchUpdate();
@@ -44,7 +51,6 @@ public class Ball : MonoBehaviour {
     }
 
     void AwaitingLaunchUpdate(){
-        this.transform.position = GC.main.Paddle.transform.position + 0.5f * Vector3.up;
         if (Input.GetKeyDown("space")) {
             this.state = State.inPlay;
             // The launch angle is determined by the direction of the paddle. 
@@ -62,14 +68,31 @@ public class Ball : MonoBehaviour {
             float angle = Mathf.PI * (0.5f - direction/3f);
             this.rb.velocity = this.speed * new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
         }
+        else {
+            this.transform.position = GC.main.Paddle.transform.position + 0.5f * Vector3.up;
+        }
     }
 
     void InPlayUpdate(){
-        // Intended No-Op: 2D Physics Engine handles movement and collisions
+        // Some thrust is applied in the direction of heading to ensure that the ball does not fall below a minimum velocity.
+        // The linear drag coefficient of its RigidBody2D component will not allow it to exceed a maximum velocity
+        this.rb.velocity += Time.fixedDeltaTime * this.thrust * this.rb.velocity.normalized;
     }
 
     void OnVictory(){
         this.gameObject.SetActive(false);
+    }
+
+    public void Reorient(){
+        float direction;
+        if (this.rb.velocity.x == 0){
+            direction = 2 * Random.Range(0, 1) - 1;
+        }
+        else {
+            direction = Mathf.Sign(this.rb.velocity.x); 
+        }
+        float angle = Mathf.PI * (0.5f - Mathf.Sign(direction)/3);
+        this.rb.velocity = this.speed * new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
     }
 
 }
